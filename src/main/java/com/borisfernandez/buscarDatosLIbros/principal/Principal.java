@@ -4,11 +4,9 @@ import com.borisfernandez.buscarDatosLIbros.model.Datos;
 import com.borisfernandez.buscarDatosLIbros.model.DatosLibros;
 import com.borisfernandez.buscarDatosLIbros.service.ConsumoAPI;
 import com.borisfernandez.buscarDatosLIbros.service.ConvertirDatos;
+import com.borisfernandez.buscarDatosLIbros.model.DatosAutores;
 
-import java.util.Comparator;
-import java.util.DoubleSummaryStatistics;
-import java.util.Optional;
-import java.util.Scanner;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class Principal {
@@ -23,6 +21,7 @@ public class Principal {
         var datos = conversor.obtenerDatos(json, Datos.class);
 
         //Top 10 libros mas descargados
+        System.out.println("************************************");
         System.out.println("TOP 10 LIBROS MAS DESCARGADOS");
         datos.libros().stream()
                 .sorted(Comparator.comparing(DatosLibros::totalDescargas).reversed())
@@ -30,18 +29,17 @@ public class Principal {
                 .map(e -> e.titulo().toUpperCase())
                 .forEach(System.out::println);
 
-        System.out.println("***********************************");
         //Busqueda de libros por nombre
+        System.out.println("***********************************");
         System.out.println("BUSCAR LIBROS POR NOMBRE");
         System.out.println("Ingresa el nombre del libro que deseas buscar");
-        String nombreLibro = scanner.nextLine();
-        String nuevaURL = URL_BASE + nombreLibro.replace(" ", "+");
+        String nombreLibros = scanner.nextLine();
+        String nuevaURL = URL_BASE + nombreLibros.replace(" ", "+");
         json = consumoAPI.obtenerDatos(nuevaURL);
         var datosBusqueda = conversor.obtenerDatos(json, Datos.class);
-
-
+        
         Optional<DatosLibros> libroBuscado = datosBusqueda.libros().stream()
-                .filter(e -> e.titulo().toUpperCase().contains(nombreLibro.toUpperCase()))
+                .filter(e -> e.titulo().toUpperCase().contains(nombreLibros.toUpperCase()))
                 .findFirst();
         if (libroBuscado.isPresent()){
             System.out.println("Libro encontrado");
@@ -51,6 +49,7 @@ public class Principal {
         }
 
         //Trabajando con estadisticas
+        System.out.println("************************************");
         System.out.println("Estadistica con todos los libros");
         DoubleSummaryStatistics est = datos.libros().stream()
                 .filter(e -> e.totalDescargas() > 0)
@@ -59,5 +58,38 @@ public class Principal {
         System.out.println("Cantidad media de descargas: " + est.getAverage());
         System.out.println("Cantidad maxima de descargas: " + est.getMax());
         System.out.println("Cantidad minima de descargas: " + est.getMin());
+
+        //Busqueda de autores por edad de muerte y nombre de libro
+        System.out.println("************************************");
+        System.out.println("Indica a que edad fallecio el autor");
+        int edadAutor = scanner.nextInt();
+        scanner.nextLine();
+
+        List<DatosAutores> lista = datos.libros().stream()
+                .flatMap(e -> e.autores().stream())
+                .filter(e -> e.añoNacimiento() > 0 && e.añoFallecimiento() > 0)
+                .filter(e -> e.añoFallecimiento() - e.añoNacimiento() == edadAutor)
+                .collect(Collectors.toList());
+        Iterator comprobar = lista.iterator();
+        if (comprobar.hasNext()) {
+            System.out.println("Autores que fallecieron a la edad de " + edadAutor + ":");
+            lista.forEach(e -> System.out.println("Nombre: " + e.nombre() + ", Año de fallecimiento: " + e.añoFallecimiento()));
+
+            System.out.println("Ahora indica el nombre del autor");
+            String nombreAutor = scanner.nextLine();
+            Optional<DatosLibros> datosLibrosPorAutor = datos.libros().stream()
+                    .filter(e -> e.autores().stream().anyMatch(a -> a.nombre().toUpperCase().contains(nombreAutor.toUpperCase())))
+                    .findFirst();
+            if (datosLibrosPorAutor.isPresent()) {
+                System.out.println("Se encontro el autor para ver sus libros:");
+                System.out.println("Los datos son: ID: " + datosLibrosPorAutor.get().id() +
+                        " Titulo: " + datosLibrosPorAutor.get().titulo() +
+                        " Total Descargas: " + datosLibrosPorAutor.get().totalDescargas());
+            } else {
+                System.out.println("No se encontro autor");
+            }
+        }else {
+            System.out.println("No se encontro ningun autor que murio a la eda " + edadAutor);
+        }
     }
 }
